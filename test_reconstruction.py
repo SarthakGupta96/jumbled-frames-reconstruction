@@ -1,7 +1,3 @@
-"""
-Testing and Evaluation Script for Frame Reconstruction
-Compares reconstructed video with original (if available)
-"""
 
 import cv2
 import numpy as np
@@ -12,7 +8,7 @@ from typing import List, Tuple
 
 
 class ReconstructionEvaluator:
-    """Evaluate reconstruction quality"""
+
     
     def __init__(self, reconstructed_path: str, original_path: str = None):
         self.reconstructed_path = reconstructed_path
@@ -21,10 +17,9 @@ class ReconstructionEvaluator:
         self.original_frames = []
         
     def load_videos(self) -> bool:
-        """Load reconstructed and original videos"""
+
         print("Loading videos...")
         
-        # Load reconstructed
         if not Path(self.reconstructed_path).exists():
             print(f"Error: {self.reconstructed_path} not found")
             return False
@@ -39,7 +34,6 @@ class ReconstructionEvaluator:
         
         print(f"Loaded {len(self.reconstructed_frames)} reconstructed frames")
         
-        # Load original if available
         if self.original_path and Path(self.original_path).exists():
             cap = cv2.VideoCapture(self.original_path)
             while True:
@@ -55,23 +49,18 @@ class ReconstructionEvaluator:
         return True
     
     def compute_frame_similarity(self, frame1: np.ndarray, frame2: np.ndarray) -> float:
-        """Compute SSIM between two frames"""
-        # Convert to grayscale
+       
         gray1 = cv2.cvtColor(frame1, cv2.COLOR_BGR2GRAY)
         gray2 = cv2.cvtColor(frame2, cv2.COLOR_BGR2GRAY)
-        
-        # Compute MSE
+   
         mse = np.mean((gray1.astype(float) - gray2.astype(float)) ** 2)
         
-        # Convert to similarity score
         if mse == 0:
             return 1.0
-        
-        # PSNR-like score
+      
         max_pixel = 255.0
         psnr = 20 * np.log10(max_pixel / np.sqrt(mse))
-        
-        # Normalize to 0-1 range
+      
         return min(psnr / 50.0, 1.0)
     
     def evaluate_temporal_coherence(self) -> dict:
@@ -108,7 +97,6 @@ class ReconstructionEvaluator:
         correct_positions = 0
         position_errors = []
         
-        # For each reconstructed frame, find best match in original
         for i, recon_frame in enumerate(self.reconstructed_frames):
             best_match_idx = -1
             best_similarity = -1
@@ -119,7 +107,6 @@ class ReconstructionEvaluator:
                     best_similarity = sim
                     best_match_idx = j
             
-            # Check if position is correct
             if best_match_idx == i:
                 correct_positions += 1
             
@@ -142,8 +129,7 @@ class ReconstructionEvaluator:
         print("\nGenerating visualizations...")
         
         fig, axes = plt.subplots(2, 1, figsize=(12, 8))
-        
-        # Plot 1: Temporal Coherence
+    
         if coherence_data and 'coherence_scores' in coherence_data:
             scores = coherence_data['coherence_scores']
             axes[0].plot(scores, linewidth=1)
@@ -154,8 +140,7 @@ class ReconstructionEvaluator:
             axes[0].set_title('Temporal Coherence Between Consecutive Frames')
             axes[0].legend()
             axes[0].grid(True, alpha=0.3)
-        
-        # Plot 2: Position Errors (if available)
+      
         if accuracy_data and 'position_errors' in accuracy_data:
             errors = accuracy_data['position_errors']
             axes[1].plot(errors, linewidth=1, color='orange')
@@ -182,21 +167,16 @@ class ReconstructionEvaluator:
         print("\n" + "="*60)
         print("RECONSTRUCTION EVALUATION REPORT")
         print("="*60)
-        
-        # Load videos
+   
         if not self.load_videos():
             return {}
-        
-        # Evaluate temporal coherence
+
         coherence_data = self.evaluate_temporal_coherence()
         
-        # Evaluate accuracy (if original available)
         accuracy_data = self.evaluate_accuracy()
-        
-        # Create visualizations
+      
         self.visualize_results(coherence_data, accuracy_data)
-        
-        # Compile report
+      
         report = {
             "reconstructed_video": self.reconstructed_path,
             "original_video": self.original_path,
@@ -204,8 +184,7 @@ class ReconstructionEvaluator:
             "temporal_coherence": coherence_data,
             "accuracy_metrics": accuracy_data
         }
-        
-        # Print summary
+  
         print("\n--- Temporal Coherence ---")
         if coherence_data:
             print(f"Average Coherence: {coherence_data.get('average_coherence', 0):.4f}")
@@ -220,7 +199,6 @@ class ReconstructionEvaluator:
         
         print("\n" + "="*60)
         
-        # Save report
         with open('evaluation_report.json', 'w') as f:
             json.dump(report, f, indent=2)
         print("\nFull report saved to: evaluation_report.json")
@@ -229,7 +207,7 @@ class ReconstructionEvaluator:
 
 
 def main():
-    """Main testing function"""
+ 
     import argparse
     
     parser = argparse.ArgumentParser(description='Evaluate reconstructed video')

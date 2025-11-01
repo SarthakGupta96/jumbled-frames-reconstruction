@@ -1,7 +1,4 @@
-"""
-Jumbled Frames Reconstruction - OPTIMIZED PARALLEL VERSION
-Uses multiprocessing for faster similarity computation
-"""
+
 
 import cv2
 import numpy as np
@@ -19,9 +16,7 @@ print(f"Available CPU cores: {cpu_count()}")
 
 
 class ParallelFrameReconstructor:
-    """
-    Optimized version with parallel processing
-    """
+    
     
     def __init__(self, video_path: str, output_path: str = "reconstructed_video.mp4", n_workers: int = None):
         self.video_path = video_path
@@ -34,7 +29,6 @@ class ParallelFrameReconstructor:
         self.n_workers = n_workers or max(1, cpu_count() - 1)
         
     def load_frames(self) -> bool:
-        """Load all frames from the jumbled video"""
         print("Loading frames from video...")
         cap = cv2.VideoCapture(self.video_path)
         
@@ -59,23 +53,20 @@ class ParallelFrameReconstructor:
         return True
     
     def compute_frame_features(self, frame: np.ndarray) -> dict:
-        """Extract multiple features from a frame"""
         small_frame = cv2.resize(frame, (320, 180))
         gray = cv2.cvtColor(small_frame, cv2.COLOR_BGR2GRAY)
         
         features = {}
         
-        # Color histogram
+
         hist = cv2.calcHist([small_frame], [0, 1, 2], None, [8, 8, 8], [0, 256, 0, 256, 0, 256])
         features['histogram'] = cv2.normalize(hist, hist).flatten()
-        
-        # ORB features
+   
         orb = cv2.ORB_create(nfeatures=100)
         keypoints, descriptors = orb.detectAndCompute(gray, None)
         features['keypoints'] = keypoints
         features['descriptors'] = descriptors
-        
-        # Store resized frame
+ 
         features['frame_small'] = small_frame
         features['gray'] = gray
         
@@ -98,7 +89,6 @@ class ParallelFrameReconstructor:
         
         scores = []
         
-        # 1. Histogram correlation
         hist_corr = cv2.compareHist(
             feat1['histogram'].reshape(-1, 1).astype(np.float32),
             feat2['histogram'].reshape(-1, 1).astype(np.float32),
@@ -106,7 +96,6 @@ class ParallelFrameReconstructor:
         )
         scores.append(max(0, hist_corr) * 0.3)
         
-        # 2. Structural similarity (MSE-based)
         mse = np.mean((feat1['frame_small'].astype(float) - feat2['frame_small'].astype(float)) ** 2)
         if mse == 0:
             ssim_score = 1.0
@@ -114,7 +103,6 @@ class ParallelFrameReconstructor:
             ssim_score = 1.0 / (1.0 + mse / 1000.0)
         scores.append(ssim_score * 0.4)
         
-        # 3. Feature matching
         if feat1['descriptors'] is not None and feat2['descriptors'] is not None:
             bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
             try:
@@ -134,7 +122,6 @@ class ParallelFrameReconstructor:
         n = len(features)
         similarity_matrix = np.zeros((n, n))
         
-        # Create list of all pairs to compare
         pairs = []
         for i in range(n):
             for j in range(i + 1, n):
@@ -143,7 +130,6 @@ class ParallelFrameReconstructor:
         total_comparisons = len(pairs)
         print(f"Computing {total_comparisons} similarity scores...")
         
-        # Process in parallel with progress updates
         batch_size = 1000
         completed = 0
         
@@ -154,7 +140,6 @@ class ParallelFrameReconstructor:
                 
                 results = pool.map(self.compute_similarity_pair, batch)
                 
-                # Fill similarity matrix
                 for i, j, sim in results:
                     similarity_matrix[i][j] = sim
                     similarity_matrix[j][i] = sim
@@ -172,7 +157,6 @@ class ParallelFrameReconstructor:
         best_path = None
         best_score = -1
         
-        # Try multiple starting points
         start_candidates = [0, n//4, n//2, 3*n//4, n-1]
         
         for start_idx in start_candidates:
@@ -183,7 +167,6 @@ class ParallelFrameReconstructor:
             total_score = 0
             
             while len(visited) < n:
-                # Find most similar unvisited frame
                 max_sim = -1
                 next_frame = -1
                 
@@ -217,13 +200,10 @@ class ParallelFrameReconstructor:
         if not self.load_frames():
             return []
         
-        # Extract features in parallel
         features = self.extract_all_features()
         
-        # Build similarity matrix in parallel
         similarity_matrix = self.build_similarity_matrix_parallel(features)
         
-        # Reconstruct order
         frame_order = self.greedy_path_reconstruction(similarity_matrix)
         
         end_time = time.time()
@@ -231,7 +211,6 @@ class ParallelFrameReconstructor:
         
         print(f"\nReconstruction completed in {execution_time:.2f} seconds")
         
-        # Save execution log
         log_data = {
             "execution_time_seconds": execution_time,
             "frame_count": self.frame_count,
@@ -271,24 +250,19 @@ def main():
     INPUT_VIDEO = "jumbled_video.mp4"
     OUTPUT_VIDEO = "reconstructed_video.mp4"
     
-    # Check if input file exists
     if not Path(INPUT_VIDEO).exists():
         print(f"Error: Input video '{INPUT_VIDEO}' not found!")
         print("Please download the video and place it in the same directory.")
         return
     
-    # Initialize reconstructor
-    # n_workers=None uses all available cores minus 1
     reconstructor = ParallelFrameReconstructor(INPUT_VIDEO, OUTPUT_VIDEO, n_workers=None)
     
-    # Reconstruct
     frame_order = reconstructor.reconstruct()
     
     if not frame_order:
         print("Reconstruction failed!")
         return
-    
-    # Save video
+ 
     reconstructor.save_video(frame_order)
     
     print("\n" + "=" * 60)
